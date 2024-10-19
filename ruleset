@@ -1,0 +1,49 @@
+Клиент.
+/etc/chrony.conf
+###############
+#остальной код#
+###############
+server 192.168.1.1
+
+/etc/audit/rules.d/audit.rules
+###############
+#остальной код#
+###############
+-a always,exit -F path=/sbin/cryptsetup -F perm=x -k cryptsetup-audit
+
+/etc/rsyslog.d/cryptsetup_audit.conf
+module(load="imfile" PollingInterval="10")
+input(type="imfile"
+      File="/var/log/audit/audit.log"
+      Tag="audit-log:"
+      Ruleset="sendToRemote")
+ruleset(name="sendToRemote") {
+    if ($msg contains 'cryptsetup') then {
+        action(type="omfwd"
+               Target="192.168.1.1"
+               Port="514"
+               Protocol="tcp"
+               Template="RSYSLOG_SyslogProtocol23Format")
+    }
+}
+
+Сервер.
+/etc/chrony.conf
+###############
+#остальной код#
+###############
+allow 192.168.1.0/24
+local stratum 4
+
+/etc/rsyslog.d/myrules.conf 
+$template RemoteLogs,"/var/log/rsyslog/%HOSTNAME%/%PROGRAMNAME%.log"
+*.* ?RemoteLogs
+
+/etc/rsyslog.conf
+###############
+#остальной код#
+###############
+module(load="imudp")
+input(type="imudp" port="514")
+module(load="imtcp")
+input(type="imtcp" port="514")
